@@ -1,0 +1,393 @@
+﻿{
+  "name": "NOLIS Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1,4"
+            }
+          ]
+        }
+      },
+      "name": "Cron Mo+Do 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        112,
+        304
+      ],
+      "id": "47d14a63-5c52-4045-9959-31640eab2846"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*)::int AS anzahl, COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', id, 'titel', titel, 'plz', plz, 'gemeinde_landkreis', gemeinde_landkreis, 'preis', preis, 'preis_pro_m2', preis_pro_m2, 'quelle', quelle, 'url_offiziell', url_offiziell, 'source', source) ORDER BY created_at DESC), '[]'::json) AS listings FROM listings WHERE exported_at IS NULL AND source IN ('wendeburg', 'hankensbuettel', 'vechelde', 'edemissen', 'flotwedel', 'uetze', 'burgdorf', 'lehrte')",
+        "options": {}
+      },
+      "name": "Neue Listings abfragen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        320,
+        304
+      ],
+      "id": "bc3f2984-5519-4d9c-85b5-4b8216f73a05",
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (scraper_db)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst listings = typeof row.listings === 'string' ? JSON.parse(row.listings) : (row.listings || []);\nconst anzahl = Number(row.anzahl) || 0;\n\nif (!anzahl) {\n  return [{ json: { anzahl: 0, ids: [], htmlBody: '', updateSql: '' } }];\n}\n\nconst ids = listings.map(l => l.id);\nconst datum = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });\n\nconst rows = listings.map(l => {\n  const preis = l.preis\n    ? (l.preis >= 10000 ? Math.round(l.preis / 1000) + 'k EUR' : Math.round(l.preis) + ' EUR')\n    : (l.preis_pro_m2 ? Math.round(l.preis_pro_m2) + ' EUR/m\\u00b2' : '\\u2013');\n  const ort = [l.plz, l.gemeinde_landkreis].filter(Boolean).join(' ') || '\\u2013';\n  const url = l.url_offiziell\n    ? '<a href=\"' + l.url_offiziell + '\" style=\"color:#2563eb;\">Details</a>'\n    : '\\u2013';\n  return '<tr style=\"border-bottom:1px solid #e5e7eb;\">'\n    + '<td style=\"padding:10px 12px;font-weight:600;color:#111827;\">' + (l.titel || '\\u2013') + '</td>'\n    + '<td style=\"padding:10px 12px;color:#374151;\">' + ort + '</td>'\n    + '<td style=\"padding:10px 12px;color:#374151;\">' + preis + '</td>'\n    + '<td style=\"padding:10px 12px;color:#374151;\">' + (l.quelle || '\\u2013') + '</td>'\n    + '<td style=\"padding:10px 12px;\">' + url + '</td>'\n    + '</tr>';\n}).join('');\n\nconst htmlBody = '<!DOCTYPE html><html lang=\"de\"><head><meta charset=\"UTF-8\"></head>'\n  + '<body style=\"margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;\">'\n  + '<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f9fafb;padding:32px 0;\">'\n  + '<tr><td align=\"center\">'\n  + '<table width=\"700\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);\">'\n  + '<tr style=\"background:#1e40af;\">'\n  + '<td colspan=\"5\" style=\"padding:24px 28px;\">'\n  + '<p style=\"margin:0;color:#bfdbfe;font-size:13px;letter-spacing:.05em;\">NOLIS GEMEINDEN \\u00b7 ' + datum + '</p>'\n  + '<h1 style=\"margin:4px 0 0;color:#fff;font-size:22px;font-weight:700;\">' + anzahl + ' neue Grundst\\u00fcck' + (anzahl !== 1 ? 'e' : '') + '</h1>'\n  + '<p style=\"margin:4px 0 0;color:#93c5fd;font-size:14px;\">Wendeburg \\u00b7 Hankenb\\u00fcttel \\u00b7 Vechelde \\u00b7 Edemissen \\u00b7 Flotwedel \\u00b7 Uetze \\u00b7 Burgdorf \\u00b7 Lehrte</p>'\n  + '</td></tr>'\n  + '<tr><td colspan=\"5\" style=\"padding:0;\">'\n  + '<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">'\n  + '<thead><tr style=\"background:#f3f4f6;\">'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Titel</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Ort</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Preis</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Quelle</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Link</th>'\n  + '</tr></thead><tbody>' + rows + '</tbody>'\n  + '</table></td></tr>'\n  + '<tr style=\"background:#f9fafb;\"><td colspan=\"5\" style=\"padding:16px 28px;border-top:1px solid #e5e7eb;\">'\n  + '<p style=\"margin:0;color:#9ca3af;font-size:12px;\">Automatisch generiert \\u00b7 NOLIS Gemeinden Scraper \\u00b7 Niedersachsen</p>'\n  + '</td></tr></table></td></tr></table></body></html>';\n\nconst updateSql = 'UPDATE listings SET exported_at = NOW() WHERE id IN (' + ids.join(',') + ')';\n\nreturn [{ json: { anzahl, ids, htmlBody, updateSql } }];"
+      },
+      "name": "HTML bauen & zählen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        304
+      ],
+      "id": "17c3bdbc-d09e-4e52-a194-c106ccd83ee8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-neue-objekte",
+              "leftValue": "={{ $json.anzahl }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Neue Objekte?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        768,
+        304
+      ],
+      "id": "2ef55536-9a50-4aed-8d9a-52dcae181a18"
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@your-agency.com",
+        "toEmail": "alerts@your-agency.com",
+        "subject": "={{ $json.anzahl }} neue Grundstücke (NOLIS Gemeinden) – {{ $now.format('DD.MM.YYYY') }}",
+        "html": "={{ $json.htmlBody }}",
+        "options": {}
+      },
+      "name": "Alert senden",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        992,
+        160
+      ],
+      "id": "ee4e8884-4769-4acb-9d9e-75e1c4ac369d",
+      "webhookId": "3c63bf70-e731-45eb-8f6e-cf17b3675202",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $('HTML bauen & zählen').first().json.updateSql }}",
+        "options": {}
+      },
+      "name": "Als exportiert markieren",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        1200,
+        160
+      ],
+      "id": "ef1e433d-4736-4784-a2c4-c42499459d72",
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (scraper_db)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $('Neue Listings abfragen').first().json;\nconst listings = typeof row.listings === 'string' ? JSON.parse(row.listings) : (row.listings || []);\nconst datum = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });\n\nreturn listings.map(l => ({\n  json: {\n    id:           l.id,\n    datum:        datum,\n    titel:        l.titel || '\\u2013',\n    plz:          l.plz || '',\n    gemeinde:     l.gemeinde_landkreis || '',\n    preis_eur:    l.preis ? Math.round(l.preis) : '',\n    preis_pro_m2: l.preis_pro_m2 ? Math.round(l.preis_pro_m2) : '',\n    quelle:       l.quelle || '',\n    url:          l.url_offiziell || ''\n  }\n}));"
+      },
+      "name": "Items aufteilen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        448
+      ],
+      "id": "451f2f8f-2bc1-4292-86c6-49224966ebd3"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "scraper_ergebnisse",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 264227211,
+          "mode": "list",
+          "cachedResultName": "NOLIS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=264227211"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "datum",
+              "displayName": "datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "titel",
+              "displayName": "titel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "plz",
+              "displayName": "plz",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemeinde",
+              "displayName": "gemeinde",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "preis_eur",
+              "displayName": "preis_eur",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "preis_pro_m2",
+              "displayName": "preis_pro_m2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "quelle",
+              "displayName": "quelle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "In Sheets NOLIS",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        448
+      ],
+      "id": "4776ee61-7e17-4952-97cd-9c57ef391911",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Cron Mo+Do 07:00": [
+      {
+        "json": {
+          "timestamp": "2026-05-18T15:49:37.831+02:00",
+          "Readable date": "May 18th 2026, 3:49:37 pm",
+          "Readable time": "3:49:37 pm",
+          "Day of week": "Monday",
+          "Year": "2026",
+          "Month": "May",
+          "Day of month": "18",
+          "Hour": "15",
+          "Minute": "49",
+          "Second": "37",
+          "Timezone": "Europe/Berlin (UTC+02:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Cron Mo+Do 07:00": {
+      "main": [
+        [
+          {
+            "node": "Neue Listings abfragen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Listings abfragen": {
+      "main": [
+        [
+          {
+            "node": "HTML bauen & zählen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML bauen & zählen": {
+      "main": [
+        [
+          {
+            "node": "Neue Objekte?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Objekte?": {
+      "main": [
+        [
+          {
+            "node": "Alert senden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Items aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Alert senden": {
+      "main": [
+        [
+          {
+            "node": "Als exportiert markieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Items aufteilen": {
+      "main": [
+        [
+          {
+            "node": "In Sheets NOLIS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2097770a-cda1-4a0e-ac0c-d41657731d63",
+  "meta": {
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "nolis-gemeinden-alert",
+  "tags": []
+}

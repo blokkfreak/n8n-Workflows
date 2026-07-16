@@ -1,0 +1,345 @@
+﻿{
+  "name": "ZVG Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "command": "cat /data/zvg-scraper/hausbau_alert.jsonl 2>/dev/null || echo ''"
+      },
+      "name": "JSONL einlesen",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -1536,
+        96
+      ],
+      "id": "34c58a46-9dd9-4fab-8055-0d6b8d9a432f"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── JSONL parsen ─────────────────────────────────────────────\nconst text = $input.first().json.stdout || '';\n\nconst alleObjekte = text\n  .split('\\n')\n  .filter(l => l.trim())\n  .map(l => { try { return JSON.parse(l); } catch(e) { return null; } })\n  .filter(Boolean);\n\n// ── Zwei-Stufen-Filter ────────────────────────────────────────\nconst TYPEN_HAUS    = ['einfamilienhaus','zweifamilienhaus','mehrfamilienhaus','doppelhaush','reihenhaus','wohn-/gesch'];\nconst TYPEN_GRUNDST = ['unbebautes grundst','baugrundst'];\n\nconst relevant = alleObjekte.filter(obj => {\n  const typ = (obj.objekt_typ || '').toLowerCase();\n  const vw  = obj.verkehrswert || 0;\n  if (TYPEN_GRUNDST.some(t => typ.includes(t)) && vw >= 10000) return true;\n  if (TYPEN_HAUS.some(t    => typ.includes(t)) && vw >= 50000) return true;\n  return false;\n});\n\n// ── Deduplizierung via Static Data ────────────────────────────\nconst staticData   = $getWorkflowStaticData('global');\nconst bekannteKeys = staticData.seenKeys || [];\n\nconst neueObjekte = relevant.filter(obj => !bekannteKeys.includes(obj.key));\n\nstaticData.seenKeys = [...new Set([\n  ...bekannteKeys,\n  ...relevant.map(o => o.key)\n])];\n\n// ── HTML bauen ────────────────────────────────────────────────\nconst datum = new Date().toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });\n\nconst rows = neueObjekte.map(o => {\n  const vw = o.verkehrswert\n    ? (o.verkehrswert >= 1000 ? (o.verkehrswert / 1000).toFixed(0) + 'k EUR' : o.verkehrswert.toFixed(0) + ' EUR')\n    : '–';\n  const url = o.url\n    ? `<a href=\"${o.url}\" style=\"color:#2563eb;\">Details</a>`\n    : '–';\n  return `\n    <tr style=\"border-bottom:1px solid #e5e7eb;\">\n      <td style=\"padding:10px 12px;font-weight:600;color:#111827;\">${o.objekt_typ || '–'}</td>\n      <td style=\"padding:10px 12px;color:#374151;\">${o.amtsgericht ? o.amtsgericht.replace(' in Niedersachsen','') : '–'}</td>\n      <td style=\"padding:10px 12px;color:#374151;font-family:monospace;font-size:13px;\">${o.aktenzeichen || '–'}</td>\n      <td style=\"padding:10px 12px;color:#374151;\">${vw}</td>\n      <td style=\"padding:10px 12px;color:#374151;\">${o.termin || '–'}</td>\n      <td style=\"padding:10px 12px;\">${url}</td>\n    </tr>`;\n}).join('');\n\nconst htmlBody = `<!DOCTYPE html>\n<html lang=\"de\">\n<head><meta charset=\"UTF-8\"></head>\n<body style=\"margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f9fafb;padding:32px 0;\">\n    <tr><td align=\"center\">\n      <table width=\"700\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);\">\n\n        <!-- Header -->\n        <tr style=\"background:#1e3a5f;\">\n          <td colspan=\"6\" style=\"padding:24px 28px;\">\n            <p style=\"margin:0;color:#93c5fd;font-size:13px;letter-spacing:.05em;\">ZVG-SCRAPER · ${datum}</p>\n            <h1 style=\"margin:4px 0 0;color:#ffffff;font-size:22px;font-weight:700;\">\n              ${neueObjekte.length} neue Zwangsversteigerung${neueObjekte.length !== 1 ? 'en' : ''}\n            </h1>\n            <p style=\"margin:4px 0 0;color:#bfdbfe;font-size:14px;\">Region: Braunschweig · Gifhorn · Celle · Wolfsburg · Salzgitter · Helmstedt · Peine</p>\n          </td>\n        </tr>\n\n        <!-- Tabelle -->\n        <tr><td colspan=\"6\" style=\"padding:0;\">\n          <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n            <thead>\n              <tr style=\"background:#f3f4f6;\">\n                <th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Typ</th>\n                <th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Amtsgericht</th>\n                <th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Aktenzeichen</th>\n                <th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Verkehrswert</th>\n                <th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Termin</th>\n                <th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Link</th>\n              </tr>\n            </thead>\n            <tbody>${rows}</tbody>\n          </table>\n        </td></tr>\n\n        <!-- Footer -->\n        <tr style=\"background:#f9fafb;\">\n          <td colspan=\"6\" style=\"padding:16px 28px;border-top:1px solid #e5e7eb;\">\n            <p style=\"margin:0;color:#9ca3af;font-size:12px;\">Automatisch generiert · ZVG-Portal Scraper · Niedersachsen</p>\n          </td>\n        </tr>\n\n      </table>\n    </td></tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{ json: { neueObjekte, anzahl: neueObjekte.length, htmlBody } }];"
+      },
+      "name": "Filtern & Deduplizieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        96
+      ],
+      "id": "59433531-136d-4f02-b893-3f83f3954ae5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-neue-objekte",
+              "leftValue": "={{ $json.anzahl }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Neue Objekte?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        96
+      ],
+      "id": "1d8abdc1-804e-4836-9440-688f80ae7fd6"
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@your-agency.com",
+        "toEmail": "alerts@your-agency.com",
+        "subject": "={{ $json.anzahl }} neue ZVG-Objekte – {{ $now.format('DD.MM.YYYY') }}",
+        "html": "={{ $('Filtern & Deduplizieren').first().json.htmlBody }}",
+        "options": {}
+      },
+      "name": "Alert senden",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -960,
+        80
+      ],
+      "id": "6aa35b36-8d44-44ae-bbcf-de027270081c",
+      "webhookId": "47cc102a-700f-4529-8d07-71e3e19c6224",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "zvg_scraper_ergebnisse",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 491434043,
+          "mode": "list",
+          "cachedResultName": "ZVG",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=491434043"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "datum",
+              "displayName": "datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "aktenzeichen",
+              "displayName": "aktenzeichen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amtsgericht",
+              "displayName": "amtsgericht",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "objekt_typ",
+              "displayName": "objekt_typ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "verkehrswert_eur",
+              "displayName": "verkehrswert_eur",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "termin",
+              "displayName": "termin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "grundbuch",
+              "displayName": "grundbuch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -800,
+        -80
+      ],
+      "id": "fc875756-50e7-4ba1-b5d3-904440ade28f",
+      "name": "Zeilen schreiben",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// neueObjekte-Array → einzelne Items für Google Sheets\nreturn $input.first().json.neueObjekte.map(o => ({\n  json: {\n    key:             o.key,\n    datum:           new Date().toLocaleDateString('de-DE'),\n    aktenzeichen:    o.aktenzeichen || '',\n    amtsgericht:     (o.amtsgericht || '').replace(' in Niedersachsen', ''),\n    objekt_typ:      o.objekt_typ || '',\n    verkehrswert_eur: o.verkehrswert || 0,\n    termin:          o.termin || '',\n    url:             o.url || ''\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        -80
+      ],
+      "id": "c4b2adc6-132d-43bd-b470-9f085c61c988",
+      "name": "Items aufteilen"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 12 * * 2"
+            }
+          ]
+        }
+      },
+      "name": "1x / Woche",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1712,
+        96
+      ],
+      "id": "25aa0cd1-e03c-4dbd-a19b-dcfdac47c32a"
+    }
+  ],
+  "pinData": {
+    "1x / Woche": [
+      {
+        "json": {
+          "timestamp": "2026-05-12T12:00:00.003+02:00",
+          "Readable date": "May 12th 2026, 12:00:00 pm",
+          "Readable time": "12:00:00 pm",
+          "Day of week": "Tuesday",
+          "Year": "2026",
+          "Month": "May",
+          "Day of month": "12",
+          "Hour": "12",
+          "Minute": "00",
+          "Second": "00",
+          "Timezone": "Europe/Berlin (UTC+02:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "JSONL einlesen": {
+      "main": [
+        [
+          {
+            "node": "Filtern & Deduplizieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtern & Deduplizieren": {
+      "main": [
+        [
+          {
+            "node": "Neue Objekte?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Objekte?": {
+      "main": [
+        [
+          {
+            "node": "Alert senden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Items aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Items aufteilen": {
+      "main": [
+        [
+          {
+            "node": "Zeilen schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1x / Woche": {
+      "main": [
+        [
+          {
+            "node": "JSONL einlesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bab23294-b3ca-42e7-a119-67c2d3cd972e",
+  "meta": {
+    "instanceId": "YOUR_N8N_INSTANCE_ID",
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "id": "zvg-ce-hausbau-alert",
+  "tags": []
+}

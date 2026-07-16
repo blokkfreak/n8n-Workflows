@@ -1,0 +1,574 @@
+﻿{
+  "name": "KIP & Gemeinden Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1,4"
+            }
+          ]
+        }
+      },
+      "name": "Cron Mo+Do 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        112,
+        304
+      ],
+      "id": "1c1d801b-49ab-42a4-9d18-5ec319865b1d"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*)::int AS anzahl, COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', id, 'titel', titel, 'plz', plz, 'gemeinde_landkreis', gemeinde_landkreis, 'preis', preis, 'preis_pro_m2', preis_pro_m2, 'quelle', quelle, 'url_offiziell', url_offiziell, 'source', source) ORDER BY created_at DESC), '[]'::json) AS listings FROM listings WHERE exported_at IS NULL AND source IN ('kip', 'salzgitter', 'wolfenbuettel')",
+        "options": {}
+      },
+      "name": "Neue Listings abfragen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        320,
+        304
+      ],
+      "id": "4fad557b-ba85-4940-afb7-f04d805a0bb2",
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (scraper_db)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst listings = typeof row.listings === 'string' ? JSON.parse(row.listings) : (row.listings || []);\nconst anzahl = Number(row.anzahl) || 0;\n\nif (!anzahl) {\n  return [{ json: { anzahl: 0, ids: [], htmlBody: '', updateSql: '' } }];\n}\n\nconst ids = listings.map(l => l.id);\nconst datum = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });\n\nconst rows = listings.map(l => {\n  const preis = l.preis\n    ? (l.preis >= 10000 ? Math.round(l.preis / 1000) + 'k EUR' : Math.round(l.preis) + ' EUR')\n    : (l.preis_pro_m2 ? Math.round(l.preis_pro_m2) + ' EUR/m\\u00b2' : '\\u2013');\n  const ort = [l.plz, l.gemeinde_landkreis].filter(Boolean).join(' ') || '\\u2013';\n  const url = l.url_offiziell\n    ? '<a href=\"' + l.url_offiziell + '\" style=\"color:#2563eb;\">Details</a>'\n    : '\\u2013';\n  return '<tr style=\"border-bottom:1px solid #e5e7eb;\">'\n    + '<td style=\"padding:10px 12px;font-weight:600;color:#111827;\">' + (l.titel || '\\u2013') + '</td>'\n    + '<td style=\"padding:10px 12px;color:#374151;\">' + ort + '</td>'\n    + '<td style=\"padding:10px 12px;color:#374151;\">' + preis + '</td>'\n    + '<td style=\"padding:10px 12px;color:#374151;\">' + (l.quelle || '\\u2013') + '</td>'\n    + '<td style=\"padding:10px 12px;\">' + url + '</td>'\n    + '</tr>';\n}).join('');\n\nconst htmlBody = '<!DOCTYPE html><html lang=\"de\"><head><meta charset=\"UTF-8\"></head>'\n  + '<body style=\"margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;\">'\n  + '<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f9fafb;padding:32px 0;\">'\n  + '<tr><td align=\"center\">'\n  + '<table width=\"700\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);\">'\n  + '<tr style=\"background:#166534;\">'\n  + '<td colspan=\"5\" style=\"padding:24px 28px;\">'\n  + '<p style=\"margin:0;color:#bbf7d0;font-size:13px;letter-spacing:.05em;\">KIP & GEMEINDEN \\u00b7 ' + datum + '</p>'\n  + '<h1 style=\"margin:4px 0 0;color:#fff;font-size:22px;font-weight:700;\">' + anzahl + ' neue Grundst\\u00fcck' + (anzahl !== 1 ? 'e' : '') + '</h1>'\n  + '<p style=\"margin:4px 0 0;color:#86efac;font-size:14px;\">Region: Gifhorn \\u00b7 Peine \\u00b7 Braunschweig \\u00b7 Hannover \\u00b7 Celle \\u00b7 Salzgitter \\u00b7 Wolfenb\\u00fcttel \\u00b7 Helmstedt</p>'\n  + '</td></tr>'\n  + '<tr><td colspan=\"5\" style=\"padding:0;\">'\n  + '<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">'\n  + '<thead><tr style=\"background:#f3f4f6;\">'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Titel</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Ort</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Preis</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Quelle</th>'\n  + '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;\">Link</th>'\n  + '</tr></thead><tbody>' + rows + '</tbody>'\n  + '</table></td></tr>'\n  + '<tr style=\"background:#f9fafb;\"><td colspan=\"5\" style=\"padding:16px 28px;border-top:1px solid #e5e7eb;\">'\n  + '<p style=\"margin:0;color:#9ca3af;font-size:12px;\">Automatisch generiert \\u00b7 KIP & Gemeinden Scraper \\u00b7 Niedersachsen</p>'\n  + '</td></tr></table></td></tr></table></body></html>';\n\nconst updateSql = 'UPDATE listings SET exported_at = NOW() WHERE id IN (' + ids.join(',') + ')';\n\nreturn [{ json: { anzahl, ids, htmlBody, updateSql } }];"
+      },
+      "name": "HTML bauen & zählen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        304
+      ],
+      "id": "ceeb9129-d55b-4532-a939-264a5e0bd48c"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-neue-objekte",
+              "leftValue": "={{ $json.anzahl }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Neue Objekte?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        768,
+        304
+      ],
+      "id": "a9246f11-fb33-4d83-845e-d4f712b17e95"
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@your-agency.com",
+        "toEmail": "alerts@your-agency.com",
+        "subject": "={{ $json.anzahl }} neue Grundstücke (KIP & Gemeinden) – {{ $now.format('DD.MM.YYYY') }}",
+        "options": {}
+      },
+      "name": "Alert senden",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        992,
+        160
+      ],
+      "webhookId": "8f76cf30-f90c-4302-8c41-8c36e9083c30",
+      "id": "7f8b1007-2ee9-4d13-a207-d843429dc2a0",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $('HTML bauen & zählen').first().json.updateSql }}",
+        "options": {}
+      },
+      "name": "Als exportiert markieren",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        1200,
+        160
+      ],
+      "id": "e61f2ec0-b22c-4896-8cc4-2f649257a457",
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (scraper_db)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $('Neue Listings abfragen').first().json;\nconst listings = typeof row.listings === 'string' ? JSON.parse(row.listings) : (row.listings || []);\nconst datum = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });\n\nreturn listings.map(l => ({\n  json: {\n    id:           l.id,\n    datum:        datum,\n    titel:        l.titel || '\\u2013',\n    plz:          l.plz || '',\n    gemeinde:     l.gemeinde_landkreis || '',\n    preis_eur:    l.preis ? Math.round(l.preis) : '',\n    preis_pro_m2: l.preis_pro_m2 ? Math.round(l.preis_pro_m2) : '',\n    quelle:       l.quelle || '',\n    url:          l.url_offiziell || ''\n  }\n}));"
+      },
+      "name": "Items aufteilen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        448
+      ],
+      "id": "ca334e0f-4ce6-4af4-b968-695d7e52c886"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-kip",
+              "leftValue": "={{ $json.source }}",
+              "rightValue": "kip",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "KIP oder Gemeinde?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        448
+      ],
+      "id": "4340e0e9-ae67-4c1a-9e0b-1280eb8b9af9"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "KIP",
+          "mode": "name",
+          "cachedResultName": "KIP"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "datum": "={{ $json.datum }}",
+            "titel": "={{ $json.titel }}",
+            "plz": "={{ $json.plz }}",
+            "gemeinde": "={{ $json.gemeinde }}",
+            "preis_eur": "={{ $json.preis_eur }}",
+            "preis_pro_m2": "={{ $json.preis_pro_m2 }}",
+            "quelle": "={{ $json.quelle }}",
+            "url": "={{ $json.url }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "datum",
+              "displayName": "datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "titel",
+              "displayName": "titel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "plz",
+              "displayName": "plz",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gemeinde",
+              "displayName": "gemeinde",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preis_eur",
+              "displayName": "preis_eur",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preis_pro_m2",
+              "displayName": "preis_pro_m2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quelle",
+              "displayName": "quelle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "In Sheets KIP",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        1424,
+        320
+      ],
+      "id": "f5a86951-06f0-4192-ba26-8ee93c88334f",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Gemeinden",
+          "mode": "name",
+          "cachedResultName": "Gemeinden"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "datum": "={{ $json.datum }}",
+            "titel": "={{ $json.titel }}",
+            "plz": "={{ $json.plz }}",
+            "gemeinde": "={{ $json.gemeinde }}",
+            "preis_eur": "={{ $json.preis_eur }}",
+            "preis_pro_m2": "={{ $json.preis_pro_m2 }}",
+            "quelle": "={{ $json.quelle }}",
+            "url": "={{ $json.url }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "datum",
+              "displayName": "datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "titel",
+              "displayName": "titel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "plz",
+              "displayName": "plz",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gemeinde",
+              "displayName": "gemeinde",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preis_eur",
+              "displayName": "preis_eur",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preis_pro_m2",
+              "displayName": "preis_pro_m2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quelle",
+              "displayName": "quelle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "In Sheets Gemeinden",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        1424,
+        560
+      ],
+      "id": "791b1624-6f3c-4de2-8dd4-b4dab3487105",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Cron Mo+Do 06:00": [
+      {
+        "json": {
+          "timestamp": "2026-05-14T06:00:00.006+02:00",
+          "Readable date": "May 14th 2026, 6:00:00 am",
+          "Readable time": "6:00:00 am",
+          "Day of week": "Thursday",
+          "Year": "2026",
+          "Month": "May",
+          "Day of month": "14",
+          "Hour": "06",
+          "Minute": "00",
+          "Second": "00",
+          "Timezone": "Europe/Berlin (UTC+02:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Cron Mo+Do 06:00": {
+      "main": [
+        [
+          {
+            "node": "Neue Listings abfragen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Listings abfragen": {
+      "main": [
+        [
+          {
+            "node": "HTML bauen & zählen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML bauen & zählen": {
+      "main": [
+        [
+          {
+            "node": "Neue Objekte?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Objekte?": {
+      "main": [
+        [
+          {
+            "node": "Alert senden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Items aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Alert senden": {
+      "main": [
+        [
+          {
+            "node": "Als exportiert markieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Items aufteilen": {
+      "main": [
+        [
+          {
+            "node": "KIP oder Gemeinde?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KIP oder Gemeinde?": {
+      "main": [
+        [
+          {
+            "node": "In Sheets KIP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "In Sheets Gemeinden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "f7e5742d-0e5a-4358-902f-96654602aaa9",
+  "meta": {
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "grundstuecke-kip-gemeinden",
+  "tags": []
+}

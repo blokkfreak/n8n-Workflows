@@ -1,0 +1,424 @@
+﻿{
+  "name": "smtp-report",
+  "nodes": [
+    {
+      "parameters": {
+        "binaryPropertyName": "attachment_0",
+        "outputPrefix": "report_"
+      },
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        0
+      ],
+      "id": "b8d1a0bf-0fec-44f3-ba28-8b55a5ac8969",
+      "name": "Entpacken"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wir durchlaufen ALLE Mails, die gleichzeitig ankommen\nfor (let i = 0; i < items.length; i++) {\n  // Wir holen die Binärdatei aus dem Feld 'report_0'\n  const binaryData = await this.helpers.getBinaryDataBuffer(i, 'report_0');\n  \n  // Wir legen den Text im JSON-Feld ab\n  items[i].json.xml_text = binaryData.toString('utf8');\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        0
+      ],
+      "id": "e660e8f7-7b67-4760-9d42-debcd99fe4e8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "xml_text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        672,
+        0
+      ],
+      "id": "77dc8340-fc31-4fda-8247-942cc9dbc637",
+      "name": "XML"
+    },
+    {
+      "parameters": {
+        "jsCode": "let failedReports = [];\n\n// Wir loopen durch alle eingegangenen Mails\nfor (const item of items) {\n  if (!item.json.feedback) continue;\n  \n  const dmarc = item.json.feedback;\n  const records = Array.isArray(dmarc.record) ? dmarc.record : [dmarc.record];\n\n  // Datum aus dem Report umwandeln (Unix-Timestamp in deutsches Datum)\n  let reportDate = \"\";\n  if (dmarc.report_metadata && dmarc.report_metadata.date_range) {\n    const timestamp = parseInt(dmarc.report_metadata.date_range.end, 10);\n    reportDate = new Date(timestamp * 1000).toLocaleDateString(\"de-DE\");\n  }\n\n  for (const record of records) {\n    if (!record || !record.row) continue;\n    \n    const row = record.row;\n    let isFail = false;\n    let failReason = \"\";\n\n    // 1. Offizielles DMARC-Ergebnis prüfen\n    if (row.policy_evaluated.dkim === 'fail' || row.policy_evaluated.spf === 'fail') {\n      isFail = true;\n      failReason = \"DMARC Policy Fail\";\n    }\n\n    // 2. Deep-Scan: Hat einer der DKIM-Schlüssel versagt?\n    if (record.auth_results && record.auth_results.dkim) {\n      const dkimAuth = Array.isArray(record.auth_results.dkim) ? record.auth_results.dkim : [record.auth_results.dkim];\n      for (const d of dkimAuth) {\n        if (d.result === 'fail' || d.result === 'permerror' || d.result === 'temperror') {\n          isFail = true;\n          failReason = \"Kaputter DKIM-Key gefunden (Selector: \" + d.selector + \" / \" + d.result + \")\";\n        }\n      }\n    }\n\n    // 3. Deep-Scan: Hat ein SPF-Check versagt?\n    if (record.auth_results && record.auth_results.spf) {\n      const spfAuth = Array.isArray(record.auth_results.spf) ? record.auth_results.spf : [record.auth_results.spf];\n      for (const s of spfAuth) {\n        if (s.result === 'fail' || s.result === 'permerror' || s.result === 'temperror' || s.result === 'softfail') {\n          isFail = true;\n          failReason = \"SPF Auth Fehler (\" + s.result + \")\";\n        }\n      }\n    }\n    \n    if (isFail) {\n      failedReports.push({\n        json: {\n          date: reportDate,\n          domain: dmarc.policy_published.domain,\n          provider: dmarc.report_metadata ? dmarc.report_metadata.org_name : \"Unbekannt\",\n          source_ip: row.source_ip,              \n          count: row.count,                      \n          policy_dkim: row.policy_evaluated.dkim,\n          policy_spf: row.policy_evaluated.spf,\n          reason: failReason,\n          action_taken: row.policy_evaluated.disposition \n        }\n      });\n    }\n  }\n}\n\nreturn failedReports;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "6472fbd3-4c2a-4303-99b1-add3e86b7e5c",
+      "name": "Auswertung & Filterung"
+    },
+    {
+      "parameters": {
+        "downloadAttachments": true,
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]",
+          "trackLastMessageId": false
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "31dcc152-fe0e-4d86-99b2-e4580fc6630c",
+      "name": "Email Trigger",
+      "credentials": {
+        "imap": {
+          "id": "YOUR_IMAP_CREDENTIAL_ID",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "liste_smtp",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.domain }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_ip",
+              "displayName": "source_ip",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "policy_dkim",
+              "displayName": "policy_dkim",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "policy_spf",
+              "displayName": "policy_spf",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "action_taken",
+              "displayName": "action_taken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "provider",
+              "displayName": "provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "aafb8ff3-ed9e-4409-b342-72d486074881",
+      "name": "Zeile hinzufügen",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account 3"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "liste_smtp",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1455802439,
+          "mode": "list",
+          "cachedResultName": "random",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1455802439"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "provider",
+              "displayName": "provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_ip",
+              "displayName": "source_ip",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "policy_dkim",
+              "displayName": "policy_dkim",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "policy_spf",
+              "displayName": "policy_spf",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_taken",
+              "displayName": "action_taken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        0
+      ],
+      "id": "3f4f4079-369c-4414-8764-638c0312a50e",
+      "name": "Random Zeile",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account 3"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Entpacken": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "XML": {
+      "main": [
+        [
+          {
+            "node": "Auswertung & Filterung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Entpacken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auswertung & Filterung": {
+      "main": [
+        [
+          {
+            "node": "Zeile hinzufügen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zeile hinzufügen": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Random Zeile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9d7c6aa4-77c2-4c32-b7e1-2d1884da6653",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "bEetjWZ22Gixb8WV",
+  "tags": []
+}

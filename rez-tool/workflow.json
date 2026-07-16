@@ -1,0 +1,662 @@
+﻿{
+  "name": "rez-tool_vers_4",
+  "nodes": [
+    {
+      "parameters": {
+        "fromEmail": "hello@your-agency.com",
+        "toEmail": "={{ $('Websiteanbindung').item.json.body.email }}\n",
+        "subject": "Rezension",
+        "html": "=<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Deine Google-Rezension</title>\n</head>\n<body style=\"margin:0; padding:0; background-color:#f4f4f4; font-family: Arial, Helvetica, sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"background-color:#f4f4f4;\">\n    <tr>\n      <td align=\"center\" style=\"padding: 32px 16px;\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden;\">\n          <tr>\n            <td style=\"background-color:#CF2030; padding: 28px 32px; text-align:center;\">\n              <h1 style=\"margin:0; color:#ffffff; font-size:22px; font-weight:700; letter-spacing:0.5px;\">Deine Rezension ist fertig!</h1>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"padding: 32px;\">\n              <p style=\"margin:0 0 16px; font-size:14px; color:#333333;\">Hallo {{ $('Cleaning').item.json.name }},</p>\n              <p style=\"margin:0 0 24px; font-size:14px; color:#333333;\">auf Basis deiner Angaben haben wir deine {{ $('Cleaning').item.json.rating }}-Rezension vorbereitet. Kopiere den Text einfach und veröffentliche ihn direkt auf Google.</p>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"margin: 0 0 24px;\">\n                <tr>\n                  <td style=\"background-color:#f9f9f9; border-left: 4px solid #CF2030; padding: 20px 20px 20px 16px; border-radius:0 4px 4px 0;\">\n                    <p style=\"margin:0; font-size:14px; color:#333333; line-height:1.7; font-style:italic;\">{{ $json.ai_generated_review }}</p>\n                  </td>\n                </tr>\n              </table>\n              <p style=\"margin:0 0 12px; font-size:14px; color:#333333; font-weight:700;\">So geht's:</p>\n              <ol style=\"margin:0 0 24px; padding-left:20px; font-size:14px; color:#333333;\">\n                <li style=\"margin-bottom:6px;\">Review-Text kopieren</li>\n                <li style=\"margin-bottom:6px;\">Google-Bewertung öffnen</li>\n                <li style=\"margin-bottom:6px;\">Text einfügen &amp; optional Fotos hochladen</li>\n                <li>Veröffentlichen</li>\n              </ol>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"margin: 0 0 28px;\">\n                <tr>\n                  <td style=\"background-color:#fff8f8; border: 1px solid #f0d0d0; padding: 14px 16px; border-radius:4px;\">\n                    <p style=\"margin:0; font-size:13px; color:#CF2030; font-weight:700;\">Profi-Tipp:</p>\n                    <p style=\"margin:6px 0 0; font-size:13px; color:#555555;\">Rezensionen mit Fotos werden von Google deutlich häufiger ausgespielt. Lade 1–2 Schnappschüsse direkt beim Posten hoch!</p>\n                  </td>\n                </tr>\n              </table>\n              {{ $json.has_gbp_link\n                ? '<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\"><tr><td align=\"center\" style=\"padding-bottom:24px;\"><a href=\"' + $json.google_review_link + '\" style=\"display:inline-block; background-color:#CF2030; color:#ffffff; text-decoration:none; font-size:14px; font-weight:700; padding:12px 28px; border-radius:25px;\">Google-Bewertung öffnen</a></td></tr></table>'\n                : '<p style=\"font-size:13px; color:#888888; margin:0 0 24px;\">Hinweis: Für dieses Unternehmen ist aktuell kein Google-Profil hinterlegt.</p>' }}\n            </td>\n          </tr>\n          <tr>\n            <td style=\"background-color:#f9f9f9; border-top:1px solid #eeeeee; padding: 20px 32px; text-align:center;\">\n              <p style=\"margin:0; font-size:12px; color:#aaaaaa;\">Vielen Dank für deine Unterstützung!<br>Dein Your Agency Team</p>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        528,
+        -16
+      ],
+      "id": "afa2f81a-1961-4963-8001-3cacd14c4343",
+      "name": "Send email",
+      "webhookId": "c9205b0c-219f-4a8c-a35a-2edd2116792f",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    name: body.name,\n    email: body.email,\n    company: body.company,\n    company_name: body.company_name || body.company,\n    rating: body.rating + ' Sterne',\n    rating_number: Number(body.rating),\n    positive_feedback: body.likes,\n    improvement: body.improvements || 'Keine Angabe',\n    notes: body.notes || 'Keine Angabe'\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        208
+      ],
+      "id": "24a6cc27-3fda-4b5d-8234-3a86db3652ab",
+      "name": "Cleaning"
+    },
+    {
+      "parameters": {
+        "jsCode": "// GBP-Zuordnung direkt im Code-Node (ohne Google-Sheet-Lookup)\nconst cleaningData = $('Cleaning').first().json;\nconst reviewData = $('Review Schreiber 2').first().json;\n\nconst normalizeSlug = (value) => String(value || '')\n  .normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '_')\n  .replace(/^_+|_+$/g, '');\n\n// Hier Place IDs pflegen: slug -> place_id\nconst PLACE_ID_BY_SLUG = {\n  member_01: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_02: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_03: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_04: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_05: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_06: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_07: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_08: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_09: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_10: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_11: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_12: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_13: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_14: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_15: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_16: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_17: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_18: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_19: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_20: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_21: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_22: 'ChIJ_EXAMPLE_PLACE_ID',\n  member_23: 'ChIJ_EXAMPLE_PLACE_ID',\n  // Offene IDs laut aktuellem Stand:\n  // marco_wehrmann: '',\n  // matthias_rogge: '',\n  // michael_pabst: '',\n};\n\nconst groupedAliases = [\n  ['member_09', 'member_10', 'wehrmann_immobilien', 'kabelanschluss24_com_gmbh']\n];\n\nconst companySlug = normalizeSlug(cleaningData.company || '');\nlet placeId = PLACE_ID_BY_SLUG[companySlug] || '';\n\nif (!placeId) {\n  for (const group of groupedAliases) {\n    if (!group.includes(companySlug)) continue;\n\n    const firstMatch = group.find((slug) => PLACE_ID_BY_SLUG[slug]);\n    if (firstMatch) {\n      placeId = PLACE_ID_BY_SLUG[firstMatch];\n    }\n    break;\n  }\n}\n\nconst reviewLink = placeId\n  ? `https://search.google.com/local/writereview?placeid=${placeId}`\n  : '';\n\nconst rawReview = $input.first().json.content || 'Review konnte nicht generiert werden';\n\n// Rekursive Reinigung\nlet text = rawReview;\nlet oldText;\ndo {\n  oldText = text;\n  text = text\n    .replace(/^[\\s\\S]*?(Rezension|Review|Output|Input|Sterne|Feedback|Kommentar|Vorschlag|Ergebnis|Zusammenfassung).*?[:\\-]+\\s*/si, '')\n    .trim();\n} while (text !== oldText);\n\nconst reviewText = text\n  .replace(/---/g, '')\n  .replace(/^[\\s\"'„&]+|[\\s\"'“]+$/g, '')\n  .trim();\n\nconst fullData = {\n  name: cleaningData.name,\n  email: cleaningData.email,\n  company: cleaningData.company,\n  company_name: cleaningData.company_name || cleaningData.company,\n  rating: cleaningData.rating,\n  positive_feedback: cleaningData.positive_feedback,\n  improvement: cleaningData.improvement,\n  notes: cleaningData.notes,\n  timestamp: cleaningData.timestamp,\n  google_review_link: reviewLink,\n  has_gbp_link: Boolean(placeId),\n  support_forwarded: false,\n  ai_generated_review: reviewText,\n  critical_review_output: ''\n};\n\nreturn [{ json: fullData, pairedItem: { item: 0 } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        96
+      ],
+      "id": "3781658e-6a22-4c0d-8529-0486ddcdf3a1",
+      "name": "Google Link"
+    },
+    {
+      "parameters": {
+        "content": "# Anpassungen bei neuem Mitglied\n## Google Sheet (Blatt: Firmen)\n- Neue Zeile: slug + place_id eintragen\n- slug = vorname_nachname (Umlaute: ö=oe, ü=ue, ä=ae)\n\n## Website (script.js)\n- body.company als Slug mitsenden\n",
+        "height": 280,
+        "width": 800,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1200,
+        -256
+      ],
+      "typeVersion": 1,
+      "id": "e05795e1-c155-4357-ad13-982e8b02c8ff",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "BNI-Rezension",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Rezensionen",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $('Cleaning').item.json.timestamp }}",
+            "Name": "={{ $('Cleaning').item.json.name }}",
+            "E-Mail": "={{ $('Cleaning').item.json.email }}",
+            "Firma": "={{ $('Cleaning').item.json.company }}",
+            "Rating": "={{ $('Cleaning').item.json.rating }}",
+            "Positives Feedback": "={{ $json.positive_feedback }}",
+            "Verbesserungen": "={{ $json.improvement }}",
+            "Output": "={{ $json.ai_generated_review }}",
+            "Google Review Link": "={{ $json.google_review_link }}",
+            "kritische Rezension": "={{ $json.critical_review_output }}"
+          },
+          "matchingColumns": [
+            "Timestamp"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "E-Mail",
+              "displayName": "E-Mail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Firma",
+              "displayName": "Firma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Rating",
+              "displayName": "Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Positives Feedback",
+              "displayName": "Positives Feedback",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Verbesserungen",
+              "displayName": "Verbesserungen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Output",
+              "displayName": "Output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "kritische Rezension",
+              "displayName": "kritische Rezension",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Google Review Link",
+              "displayName": "Google Review Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        528,
+        272
+      ],
+      "id": "f8f4e2e7-a8d9-4f86-bb44-865707b159bb",
+      "name": "GoogleSheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        528,
+        160
+      ],
+      "id": "34aefa03-20e8-4e36-a2ef-4bdb4b857df1",
+      "name": "Rückgabe an Website"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rezensions-generator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1200,
+        208
+      ],
+      "id": "5ecf985b-4d3f-4e8c-9da6-a8c33468d6bf",
+      "name": "Websiteanbindung",
+      "webhookId": "fba125c4-f437-46a1-88a6-c3d46f1c0c10"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "54a4e297-f0fc-40bd-9e19-53e57c7895dc",
+              "leftValue": "={{ $json.rating_number }}",
+              "rightValue": 4,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -768,
+        208
+      ],
+      "id": "704f397c-fbce-488d-86d2-6a9f320259ae",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Schreibe eine Google-Rezension auf Deutsch aus den Nutzerantworten.\n\nRegeln:\n- 50-120 Wörter\n- Persönlich und warmherzig, aber ohne überschwänglichen Einstieg oder Superlative\n- Keine erfundenen Details\n- Sternebewertung einbauen, keine Emojis\n- Gib NUR den reinen Rezensionstext zurück.\n- Keine Einleitung (\"Hier ist...\"), keine Anreden (\"Hallo...\"), keine Trennstriche.\n\n###\n\nInput:\nSternebewertung: 5\nPositives Feedback: Freundliches Personal, kurze Wartezeit\nVerbesserungsvorschläge: keine\nZusätzlicher Kommentar: keine\n\nOutput:\nIch war wirklich positiv überrascht - das Personal war durchgehend freundlich und nahm sich Zeit, obwohl es sichtlich viel zu tun gab. Die Wartezeit war kurz und alles lief angenehm unkompliziert. Selten erlebt, dass man sich so gut aufgehoben fühlt. Klare 5 Sterne, ich komme gerne wieder.\n\n###\n\nInput:\nSternebewertung: {{ $json.rating }}\nPositives Feedback: {{ $json.positive_feedback }}\nVerbesserungsvorschläge: {{ $json.improvement }}\nZusätzlicher Kommentar: {{ $json.notes || 'Keine Angabe' }}\n\nOutput:"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        -272
+      ],
+      "id": "5ca546de-95ca-4975-a4a8-8838660c2753",
+      "name": "Review-Schreiber",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Schreibe eine Google-Rezension auf Deutsch aus den Nutzerantworten.\n\nRegeln:\n- 50-120 Wörter\n- Persönlich und warmherzig, aber ohne überschwänglichen Einstieg oder Superlative\n- Keine erfundenen Details\n- Sternebewertung einbauen, keine Emojis\n\n###\n\nInput:\nSternebewertung: 5\nPositives Feedback: Freundliches Personal, kurze Wartezeit\nVerbesserungsvorschläge: keine\nZusätzlicher Kommentar: keine\n\nOutput:\nIch war wirklich positiv überrascht - das Personal war durchgehend freundlich und nahm sich Zeit, obwohl es sichtlich viel zu tun gab. Die Wartezeit war kurz und alles lief angenehm unkompliziert. Selten erlebt, dass man sich so gut aufgehoben fühlt. Klare 5 Sterne, ich komme gerne wieder.\n\n###\n\nInput:\nSternebewertung: {{ $json.rating }}\nPositives Feedback: {{ $json.positive_feedback }}\nVerbesserungsvorschläge: {{ $json.improvement }}\nZusätzlicher Kommentar: {{ $json.notes || 'Keine Angabe' }}\n\nOutput:"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        -272
+      ],
+      "id": "35702b34-c49d-402c-b997-41237b1f6440",
+      "name": "Review-Schreiber Kritisch",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cleaningData = $('Cleaning').item.json;\nlet text = $('Review Schreiber Kritisch 2').first().json.content || '';\n\n// Rekursive Reinigung von allen Labels\nlet oldText;\ndo {\n  oldText = text;\n  text = text\n    .replace(/^[\\s\\S]*?(Rezension|Review|Output|Input|Sterne|Feedback|Kommentar|Vorschlag|Ergebnis|Zusammenfassung).*?[:\\-]+\\s*/si, '')\n    .trim();\n} while (text !== oldText);\n\nconst criticalReview = text\n  .replace(/---/g, '')\n  .replace(/^[\\s\"'„&]+|[\\s\"'“]+$/g, '')\n  .trim();\n\nreturn [{\n  json: {\n    ...cleaningData,\n    success: true,\n    ai_generated_review: '', // Bleibt leer für den Haupt-Output\n    google_review_link: '',\n    has_gbp_link: false,\n    support_forwarded: true,\n    company_name: cleaningData.company_name || cleaningData.company,\n    critical_review_output: criticalReview\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        352
+      ],
+      "id": "9df09372-0b28-41b8-b7c9-15e1680c43d5",
+      "name": "Kritische Rückgabe Daten"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@your-agency.com",
+        "toEmail": "hello@your-agency.com",
+        "html": "=<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Kritische Rezension eingegangen</title>\n</head>\n<body style=\"margin:0; padding:0; background-color:#f4f4f4; font-family: Arial, Helvetica, sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"background-color:#f4f4f4;\">\n    <tr>\n      <td align=\"center\" style=\"padding: 32px 16px;\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden;\">\n          <tr>\n            <td style=\"background-color:#CF2030; padding: 28px 32px; text-align:center;\">\n              <h1 style=\"margin:0; color:#ffffff; font-size:22px; font-weight:700;\">Kritische Rezension eingegangen</h1>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"padding: 32px;\">\n              <p style=\"margin:0 0 20px; font-size:14px; color:#333333;\">Es ist soeben eine kritische Bewertung über das Rezensionstool eingegangen. Bitte prüft den Vorgang und nehmt ggf. Kontakt zum Kunden auf.</p>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"margin: 0 0 20px; border:1px solid #eeeeee; border-radius:4px;\">\n                <tr><td colspan=\"2\" style=\"background:#CF2030; padding:10px 16px; border-radius:4px 4px 0 0;\"><p style=\"margin:0; font-size:11px; font-weight:700; color:#ffffff; text-transform:uppercase; letter-spacing:1px;\">Kundendaten</p></td></tr>\n                <tr><td style=\"padding:10px 16px; font-size:13px; color:#888888; width:140px; border-bottom:1px solid #f5f5f5;\">Name</td><td style=\"padding:10px 16px; font-size:13px; color:#333333; font-weight:600; border-bottom:1px solid #f5f5f5;\">{{ $('Cleaning').item.json.name }}</td></tr>\n                <tr style=\"background:#f9f9f9;\"><td style=\"padding:10px 16px; font-size:13px; color:#888888; border-bottom:1px solid #eeeeee;\">E-Mail</td><td style=\"padding:10px 16px; font-size:13px; color:#333333; font-weight:600; border-bottom:1px solid #eeeeee;\">{{ $('Cleaning').item.json.email }}</td></tr>\n                <tr><td style=\"padding:10px 16px; font-size:13px; color:#888888; border-bottom:1px solid #f5f5f5;\">Firma</td><td style=\"padding:10px 16px; font-size:13px; color:#333333; font-weight:600; border-bottom:1px solid #f5f5f5;\">{{ $('Cleaning').item.json.company_name }}</td></tr>\n                <tr style=\"background:#f9f9f9;\"><td style=\"padding:10px 16px; font-size:13px; color:#888888;\">Zeitpunkt</td><td style=\"padding:10px 16px; font-size:13px; color:#333333; font-weight:600;\">{{ $('Cleaning').item.json.timestamp }}</td></tr>\n              </table>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"margin: 0 0 20px; border:1px solid #eeeeee; border-radius:4px;\">\n                <tr><td colspan=\"2\" style=\"background:#CF2030; padding:10px 16px; border-radius:4px 4px 0 0;\"><p style=\"margin:0; font-size:11px; font-weight:700; color:#ffffff; text-transform:uppercase; letter-spacing:1px;\">Bewertung</p></td></tr>\n                <tr><td style=\"padding:10px 16px; font-size:13px; color:#888888; width:140px; border-bottom:1px solid #f5f5f5;\">Sterne</td><td style=\"padding:10px 16px; font-size:13px; color:#CF2030; font-weight:700; border-bottom:1px solid #f5f5f5;\">{{ $('Cleaning').item.json.rating }}</td></tr>\n                <tr style=\"background:#f9f9f9;\"><td style=\"padding:10px 16px; font-size:13px; color:#888888; border-bottom:1px solid #eeeeee;\">Was war gut</td><td style=\"padding:10px 16px; font-size:13px; color:#333333; border-bottom:1px solid #eeeeee;\">{{ $('Cleaning').item.json.positive_feedback }}</td></tr>\n                <tr><td style=\"padding:10px 16px; font-size:13px; color:#888888; border-bottom:1px solid #f5f5f5;\">Kritik</td><td style=\"padding:10px 16px; font-size:13px; color:#333333; border-bottom:1px solid #f5f5f5;\">{{ $('Cleaning').item.json.improvement }}</td></tr>\n                <tr style=\"background:#f9f9f9;\"><td style=\"padding:10px 16px; font-size:13px; color:#888888;\">Kommentar</td><td style=\"padding:10px 16px; font-size:13px; color:#333333;\">{{ $('Cleaning').item.json.notes }}</td></tr>\n              </table>\n              <p style=\"margin:0 0 8px; font-size:14px; color:#333333; font-weight:700;\">Generierter Review-Text:</p>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\">\n                <tr>\n                  <td style=\"background-color:#f9f9f9; border-left: 4px solid #CF2030; padding: 16px 16px 16px 12px; border-radius:0 4px 4px 0;\">\n                    <p style=\"margin:0; font-size:14px; color:#333333; line-height:1.7; font-style:italic;\">{{ ($json.content || '').toString().replace(/^[\\s\\S]*?(Rezension|Review|Output|Input|Sterne|Feedback|Kommentar|Vorschlag|Ergebnis|Zusammenfassung).*?[:\\-]+\\s*/si, '').replace(/---/g, '').replace(/^[\\s\"']+|[\\s\"']+$/g, '').trim() }}</p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"background-color:#f9f9f9; border-top:1px solid #eeeeee; padding: 20px 32px; text-align:center;\">\n              <p style=\"margin:0; font-size:12px; color:#aaaaaa;\">Automatisch generiert &mdash; Rezensionstool &middot; Your Agency</p>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -176,
+        352
+      ],
+      "id": "e554feae-e361-4ac5-8cf2-fea9eed46f74",
+      "name": "Mail Support",
+      "webhookId": "c9205b0c-219f-4a8c-a35a-2edd2116792f",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "mistral-large-3:675b",
+          "mode": "list",
+          "cachedResultName": "mistral-large-3:675b"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Schreibe eine Google-Rezension auf Deutsch aus den Nutzerantworten.\n\nRegeln:\n- 50-120 Wörter\n- Persönlich und warmherzig, aber ohne überschwänglichen Einstieg oder Superlative\n- Keine erfundenen Details\n- Sternebewertung einbauen, keine Emojis\n- Gib NUR den reinen Rezensionstext zurück.\n- Keine Einleitung (\"Hier ist...\"), keine Anreden (\"Hallo...\"), keine Trennstriche.\n\n###\n\nInput:\nSternebewertung: 5\nPositives Feedback: Freundliches Personal, kurze Wartezeit\nVerbesserungsvorschläge: keine\nZusätzlicher Kommentar: keine\n\nOutput:\nIch war wirklich positiv überrascht - das Personal war durchgehend freundlich und nahm sich Zeit, obwohl es sichtlich viel zu tun gab. Die Wartezeit war kurz und alles lief angenehm unkompliziert. Selten erlebt, dass man sich so gut aufgehoben fühlt. Klare 5 Sterne, ich komme gerne wieder.\n\n###\n\nInput:\nSternebewertung: {{ $json.rating }}\nPositives Feedback: {{ $json.positive_feedback }}\nVerbesserungsvorschläge: {{ $json.improvement }}\nZusätzlicher Kommentar: {{ $json.notes || 'Keine Angabe' }}\n\nOutput:"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        96
+      ],
+      "id": "320e87e9-475b-4172-bb5b-14b31e044ef6",
+      "name": "Review Schreiber 2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "YOUR_OLLAMA_CREDENTIAL_ID",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "mistral-large-3:675b",
+          "mode": "list",
+          "cachedResultName": "mistral-large-3:675b"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Schreibe eine Google-Rezension auf Deutsch aus den Nutzerantworten.\n\nRegeln:\n- 50-120 Wörter\n- Persönlich und warmherzig, aber ohne überschwänglichen Einstieg oder Superlative\n- Keine erfundenen Details\n- Sternebewertung einbauen, keine Emojis\n\n###\n\nInput:\nSternebewertung: 5\nPositives Feedback: Freundliches Personal, kurze Wartezeit\nVerbesserungsvorschläge: keine\nZusätzlicher Kommentar: keine\n\nOutput:\nIch war wirklich positiv überrascht - das Personal war durchgehend freundlich und nahm sich Zeit, obwohl es sichtlich viel zu tun gab. Die Wartezeit war kurz und alles lief angenehm unkompliziert. Selten erlebt, dass man sich so gut aufgehoben fühlt. Klare 5 Sterne, ich komme gerne wieder.\n\n###\n\nInput:\nSternebewertung: {{ $json.rating }}\nPositives Feedback: {{ $json.positive_feedback }}\nVerbesserungsvorschläge: {{ $json.improvement }}\nZusätzlicher Kommentar: {{ $json.notes || 'Keine Angabe' }}\n\nOutput:"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        352
+      ],
+      "id": "05b90f5c-0a55-483e-beb4-88eb9644d40e",
+      "name": "Review Schreiber Kritisch 2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "YOUR_OLLAMA_CREDENTIAL_ID",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@your-agency.com",
+        "toEmail": "={{ $('Websiteanbindung').item.json.body.email }}",
+        "subject": "Dein Feedback wurde aufgenommen",
+        "html": "=<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Dein Feedback wurde aufgenommen</title>\n</head>\n<body style=\"margin:0; padding:0; background-color:#f4f4f4; font-family: Arial, Helvetica, sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"background-color:#f4f4f4;\">\n    <tr>\n      <td align=\"center\" style=\"padding: 32px 16px;\">\n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden;\">\n          <tr>\n            <td style=\"background-color:#CF2030; padding: 28px 32px; text-align:center;\">\n              <h1 style=\"margin:0; color:#ffffff; font-size:22px; font-weight:700;\">Vielen Dank für dein Feedback!</h1>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"padding: 32px;\">\n              <p style=\"margin:0 0 16px; font-size:14px; color:#333333;\">Hallo {{ $('Cleaning').item.json.name }},</p>\n              <p style=\"margin:0 0 24px; font-size:14px; color:#333333;\">vielen Dank für dein ehrliches Feedback zu <strong>{{ $('Cleaning').item.json.company_name }}</strong>. Wir haben es aufgenommen und kümmern uns um die nächsten Schritte.</p>\n              <p style=\"margin:0 0 8px; font-size:14px; color:#333333; font-weight:700;\">Dein vorbereiteter Review-Text:</p>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" role=\"presentation\" style=\"margin: 0 0 24px;\">\n                <tr>\n                  <td style=\"background-color:#f9f9f9; border-left: 4px solid #CF2030; padding: 20px 20px 20px 16px; border-radius:0 4px 4px 0;\">\n                    <p style=\"margin:0; font-size:14px; color:#333333; line-height:1.7; font-style:italic;\">{{ ($json.content || '').toString().replace(/^[\\s\\S]*?(Rezension|Review|Output|Input|Sterne|Feedback|Kommentar|Vorschlag|Ergebnis|Zusammenfassung).*?[:\\-]+\\s*/si, '').replace(/---/g, '').replace(/^[\\s\"']+|[\\s\"']+$/g, '').trim() }}</p>\n                  </td>\n                </tr>\n              </table>\n              <p style=\"margin:0; font-size:14px; color:#333333;\">Bei Bedarf melden wir uns direkt bei dir.</p>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"background-color:#f9f9f9; border-top:1px solid #eeeeee; padding: 20px 32px; text-align:center;\">\n              <p style=\"margin:0; font-size:12px; color:#aaaaaa;\">Viele Grüße &mdash; {{ $('Cleaning').item.json.company_name }}</p>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -176,
+        496
+      ],
+      "id": "2f60f581-ee00-4254-b918-452801322a78",
+      "name": "Mail Reviewer",
+      "webhookId": "c9205b0c-219f-4a8c-a35a-2edd2116792f",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Websiteanbindung": [
+      {
+        "json": {
+          "headers": {
+            "host": "your-n8n-instance.example.com",
+            "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+            "content-length": "197",
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "de-DE,de;q=0.9",
+            "content-type": "application/json",
+            "origin": "http://127.0.0.1:3000",
+            "priority": "u=1, i",
+            "referer": "http://127.0.0.1:3000/",
+            "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Brave\";v=\"146\"",
+            "sec-ch-ua-mobile": "?1",
+            "sec-ch-ua-platform": "\"iOS\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "sec-gpc": "1",
+            "x-forwarded-for": "0.0.0.0",
+            "x-forwarded-host": "your-n8n-instance.example.com",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "8a8cecbb37b0",
+            "x-real-ip": "0.0.0.0"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "name": "Test User",
+            "email": "test@example.com",
+            "company": "member_02",
+            "company_name": "Test Member",
+            "rating": "1",
+            "likes": "Erreichbarkeit",
+            "improvements": "Termine, Reporting",
+            "notes": ""
+          },
+          "webhookUrl": "https://your-n8n-instance.example.com/webhook/rezensions-generator",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Websiteanbindung": {
+      "main": [
+        [
+          {
+            "node": "Cleaning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleaning": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Review Schreiber 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Review Schreiber Kritisch 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kritische Rückgabe Daten": {
+      "main": [
+        [
+          {
+            "node": "Rückgabe an Website",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GoogleSheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Link": {
+      "main": [
+        [
+          {
+            "node": "GoogleSheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rückgabe an Website",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail Support": {
+      "main": [
+        [
+          {
+            "node": "Kritische Rückgabe Daten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Schreiber 2": {
+      "main": [
+        [
+          {
+            "node": "Google Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Schreiber Kritisch 2": {
+      "main": [
+        [
+          {
+            "node": "Mail Support",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mail Reviewer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6f0c192d-ffd6-401b-ab10-6ee22bde646e",
+  "meta": {
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "aCbsl50tkWOtx1ufOUAMg",
+  "tags": []
+}

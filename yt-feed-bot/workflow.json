@@ -1,0 +1,465 @@
+﻿{
+  "name": "yt-feed-bot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 8
+            }
+          ]
+        }
+      },
+      "id": "c4800f2c-ca03-47a5-b469-364099c09bd4",
+      "name": "Alle 8 Stunden",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1744,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-rss-urls",
+              "name": "rssUrls",
+              "value": "={{ [\n'https://www.youtube.com/feeds/videos.xml?channel_id=UC2ojq-nuP8ceeHqiroeKhBA',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UC2WmuBuFq6gL08QYG-JjXKw',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UChISdIicsXCxHQodrzLwusw',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCFVteOob_YXJHPaGTqlDV2Q',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UC9Rrud-8CaHokDtK9FszvRg',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCfOvNb3xj28SNqPQ_JIbumg',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCXzw-OdotBUcNA9yhuYQBwA',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCoGjAP294Mr0bh1QGPT-nGQ',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCdM0LgFN54j-pRL-P0Ea_lg',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCYwLV1gDwzGbg7jXQ52bVnQ',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCAdFen-6WQOxmDHK3saMD8A',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCswWBF6ZkGnLG3sLRR65xRw',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCE6O7wATswjzR0JvgLy2-Og',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCYeiozh-4QwuC1sjgCmB92w',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCUa4yMJ3mVquTL5TIpxatqQ',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCzsfkUFa1_4F4cZeSLv5dFQ',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCR-DXc1voovS8nhAvccRZhg',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCZE-OOI_MOizZqoLy7cF_cQ',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCFig7skuwYrCIGy0tuZHA2Q',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCR47AFT4vnVNoK0Pyn9LvnA',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCj-GFbHcFUw6znRLw4Lx7IA',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCLKPca3kwwd-B59HNr-_lvA',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UC18HclY7Tt5-1e3Z-MEP7Jg',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCLIrFPsnL3x3LHmm_tgXv2g',\n'https://www.youtube.com/feeds/videos.xml?channel_id=UCbo-KbSjJDG6JWQ_MTZ_rNA'\n] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a45ed72e-811d-490e-b7b3-94851bc16366",
+      "name": "RSS Feed URLs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1504,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "rssUrls",
+        "options": {}
+      },
+      "id": "f561d581-6b15-4c14-9f9e-31baace9e289",
+      "name": "URLs aufteilen",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.rssUrls }}",
+        "options": {}
+      },
+      "id": "946bff44-bca8-41f6-a9ad-aed1154d29e2",
+      "name": "RSS Feed abrufen",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-date-filter",
+              "leftValue": "={{ new Date($json.isoDate || $json.pubDate).getTime() }}",
+              "rightValue": "={{ Date.now() - 8 * 60 * 60 * 1000 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "16350520-f725-4a7e-a9ea-ce38fb6d6deb",
+      "name": "Neue Videos filtern",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -784,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "56f40386-404f-40f8-8325-1736c2880b66",
+      "name": "Loop über Videos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -512,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Du bist ein präziser Assistent. Fasse den Inhalt eines YouTube-Videos in maximal 2-3 Sätzen auf Deutsch zusammen. Nur die Zusammenfassung, kein Intro, keine Floskeln. Verwende keine Markdown-Formatierung. Kein **fett**, kein _kursiv_, keine Listen.\n\nTitel: {{ $json.title }}\nBeschreibung: {{ ($json.contentSnippet || $json.content || $json.summary || 'Keine Beschreibung verfügbar').substring(0, 600) }}",
+        "batching": {
+          "batchSize": 1,
+          "delayBetweenBatches": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -256,
+        192
+      ],
+      "id": "ec9fc173-df07-4b4d-8c2a-00f1c055637a",
+      "name": "Mistral"
+    },
+    {
+      "parameters": {
+        "model": "mistralai/ministral-3b-2512",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        416
+      ],
+      "id": "e7dbb178-1557-4bd5-9788-ed80840168bf",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CREDENTIAL_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-title",
+              "name": "title",
+              "value": "={{ $('Loop über Videos').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "field-link",
+              "name": "link",
+              "value": "={{ $('Loop über Videos').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "field-channel",
+              "name": "channel",
+              "value": "={{ $('Loop über Videos').item.json.author || 'Unbekannt' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-summary",
+              "name": "summary",
+              "value": "={{ $json.text.trim().replace(/\\n+/g, ' ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ff8873b2-21ad-4a8d-a849-fd3300bfa935",
+      "name": "Felder zusammenführen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        32,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "videos",
+        "options": {}
+      },
+      "id": "e30618ee-3b8a-4859-8f9f-323901ce4453",
+      "name": "Alle Videos sammeln",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-message",
+              "name": "message",
+              "value": "={{ '*YouTube Neuigkeiten – ' + new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '*\\n\\n' + ($json.videos && $json.videos.length > 0 ? $json.videos.map(v => '*' + v.channel + '*\\n' + v.title + '\\n' + v.summary + '\\n🔗 ' + v.link).join('\\n\\n────────────────────\\n\\n') : '_Keine neuen Videos in den letzten 8 Stunden._') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "77ec8b98-f203-465c-a6c1-78e8cdc86891",
+      "name": "Slack-Nachricht formatieren",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {
+          "mrkdwn": true
+        }
+      },
+      "id": "657a9ccb-a3d7-46b3-8626-4d7be5da481a",
+      "name": "Slack senden",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        128,
+        -48
+      ],
+      "webhookId": "82260f66-61eb-4ba8-929d-cc75e2825712",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_SLACK_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "7c73d876-cd4d-4ed4-8e3c-1a12eaeed80e",
+      "name": "Loop über Videos1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1088,
+        192
+      ]
+    }
+  ],
+  "pinData": {
+    "Alle 8 Stunden": [
+      {
+        "json": {
+          "timestamp": "2026-04-07T07:05:28.410-04:00",
+          "Readable date": "April 7th 2026, 7:05:28 am",
+          "Readable time": "7:05:28 am",
+          "Day of week": "Tuesday",
+          "Year": "2026",
+          "Month": "April",
+          "Day of month": "07",
+          "Hour": "07",
+          "Minute": "05",
+          "Second": "28",
+          "Timezone": "America/New_York (UTC-04:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Alle 8 Stunden": {
+      "main": [
+        [
+          {
+            "node": "RSS Feed URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Feed URLs": {
+      "main": [
+        [
+          {
+            "node": "URLs aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URLs aufteilen": {
+      "main": [
+        [
+          {
+            "node": "Loop über Videos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Feed abrufen": {
+      "main": [
+        [
+          {
+            "node": "Loop über Videos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Videos filtern": {
+      "main": [
+        [
+          {
+            "node": "Loop über Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop über Videos": {
+      "main": [
+        [
+          {
+            "node": "Alle Videos sammeln",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mistral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral": {
+      "main": [
+        [
+          {
+            "node": "Felder zusammenführen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Mistral",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Felder zusammenführen": {
+      "main": [
+        [
+          {
+            "node": "Loop über Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alle Videos sammeln": {
+      "main": [
+        [
+          {
+            "node": "Slack-Nachricht formatieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack-Nachricht formatieren": {
+      "main": [
+        [
+          {
+            "node": "Slack senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop über Videos1": {
+      "main": [
+        [
+          {
+            "node": "Neue Videos filtern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RSS Feed abrufen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "70d7e430-4be8-4ebd-aed4-6aa65620bda3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "Me080GJXxOjx7n_HQKwrf",
+  "tags": []
+}
